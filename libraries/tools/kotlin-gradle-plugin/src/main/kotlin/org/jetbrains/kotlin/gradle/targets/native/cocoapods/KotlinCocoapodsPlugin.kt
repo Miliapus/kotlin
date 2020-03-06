@@ -314,6 +314,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
                 it.kotlinNativeTarget = target
                 it.description = "Collect environment variables from .xcworkspace file"
                 it.cocoapodsExtension = cocoapodsExtension
+                it.xcWorkspaceDirProvider = podInstallTaskProvider.get().xcWorkspaceDirProvider
                 it.dependsOn(podInstallTaskProvider)
             }
         }

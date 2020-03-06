@@ -74,9 +74,7 @@ open class PodSetupBuildTask : DefaultTask() {
     internal lateinit var cocoapodsExtension: CocoapodsExtension
 
     @get:InputDirectory
-    internal val xcWorkspaceDirProvider: Provider<File> = project.provider {
-        project.file(cocoapodsExtension.xcodeproj.replace("xcodeproj", "xcworkspace"))
-    }
+    internal lateinit var xcWorkspaceDirProvider: Provider<File>
 
     @Internal
     lateinit var kotlinNativeTarget: KotlinNativeTarget
