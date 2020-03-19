@@ -13,23 +13,27 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
+import java.io.File
 
 open class CocoapodsExtension(private val project: Project) {
     @get:Input
     val version: String
         get() = project.version.toString()
 
-    /**
-     * Configure relative path to the Podfile.
-     */
-    @Input
-    lateinit var podfile: String
+    private lateinit var _podfile: File
+
+    @get:Internal
+    val podfile: File
+        get() = _podfile
 
     /**
-     * Configure relative path to the .xcodeproj file.
+     * Configure path to the Podfile.
      */
-    @Input
-    lateinit var xcodeproj: String
+    fun podfile(path: String) {
+        val podFile = project.file(path)
+        check(podFile.exists()) { "Podfile with path $path is not found!" }
+        _podfile = podFile
+    }
 
     /**
      * Configure authors of the pod built from this project.

@@ -4,4 +4,3 @@
 #
 
 org.jetbrains.kotlin.idea.scripting.gradle.importing.KotlinDslScriptTaskModelBuilder
-org.jetbrains.kotlin.idea.cocoapods.KotlinCocoaPodsModelBuilder

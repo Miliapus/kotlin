@@ -36,7 +36,6 @@ open class PodspecTask : DefaultTask() {
     @get:Nested
     internal lateinit var cocoapodsExtension: CocoapodsExtension
 
-    // TODO: Handle Framework name customization - rename the framework during sync process.
     @TaskAction
     fun generate() {
         val frameworkDir = project.cocoapodsBuildDirs.framework.relativeTo(outputFileProvider.get().parentFile).path
