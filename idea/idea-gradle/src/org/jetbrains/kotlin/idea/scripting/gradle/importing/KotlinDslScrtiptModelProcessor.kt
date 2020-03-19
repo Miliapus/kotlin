@@ -5,18 +5,15 @@
 
 package org.jetbrains.kotlin.idea.scripting.gradle.importing
 
+import com.intellij.build.FilePosition
 import com.intellij.build.SyncViewManager
+import com.intellij.build.events.MessageEvent
+import com.intellij.build.events.impl.FileMessageEventImpl
+import com.intellij.build.events.impl.MessageEventImpl
 import com.intellij.openapi.components.service
 import com.intellij.openapi.externalSystem.service.execution.ExternalSystemEventDispatcher
-import com.intellij.openapi.externalSystem.service.notification.ExternalSystemNotificationManager
-import com.intellij.openapi.externalSystem.service.notification.NotificationCategory
-import com.intellij.openapi.externalSystem.service.notification.NotificationData
-import com.intellij.openapi.externalSystem.service.notification.NotificationSource
-import com.intellij.openapi.fileEditor.OpenFileDescriptor
-import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.pom.Navigatable
 import org.jetbrains.kotlin.idea.KotlinIdeaGradleBundle
 import org.jetbrains.kotlin.idea.core.script.ScriptConfigurationManager
 import org.jetbrains.kotlin.idea.core.script.configuration.cache.CachedConfigurationInputs
@@ -35,6 +32,8 @@ import kotlin.script.experimental.api.*
 import kotlin.script.experimental.jvm.JvmDependency
 import kotlin.script.experimental.jvm.jdkHome
 import kotlin.script.experimental.jvm.jvm
+
+private const val gradle_build_script_errors_group = "Kotlin Build Script Errors"
 
 fun saveScriptModels(
     resolverContext: ProjectResolverContext,
@@ -97,7 +96,35 @@ fun saveScriptModels(
         )
 
         buildScript.messages.forEach {
-            addBuildScriptDiagnosticMessage(it, virtualFile, project)
+            val severity = when (it.severity) {
+                KotlinDslScriptModel.Severity.WARNING -> MessageEvent.Kind.WARNING
+                KotlinDslScriptModel.Severity.ERROR -> MessageEvent.Kind.ERROR
+            }
+            val position = it.position
+            if (position == null) {
+                buildEventDispatcher.onEvent(
+                    task,
+                    MessageEventImpl(
+                        task,
+                        severity,
+                        gradle_build_script_errors_group,
+                        it.text,
+                        it.details
+                    )
+                )
+            } else {
+                buildEventDispatcher.onEvent(
+                    task,
+                    FileMessageEventImpl(
+                        task,
+                        severity,
+                        gradle_build_script_errors_group,
+                        it.text, it.details,
+                        // 0-based line numbers
+                        FilePosition(scriptFile, position.line - 1, position.column)
+                    ),
+                )
+            }
         }
     }
 
@@ -107,51 +134,4 @@ fun saveScriptModels(
 
     project.service<ScriptConfigurationManager>().saveCompilationConfigurationAfterImport(scriptConfigurations)
     project.service<GradleScriptInputsWatcher>().clearState()
-}
-
-private fun addBuildScriptDiagnosticMessage(
-    message: KotlinDslScriptModel.Message,
-    virtualFile: VirtualFile,
-    project: Project
-) {
-    val notification = NotificationData(
-        KotlinIdeaGradleBundle.message("title.kotlin.build.script"),
-        message.text,
-        when (message.severity) {
-            KotlinDslScriptModel.Severity.WARNING -> NotificationCategory.WARNING
-            KotlinDslScriptModel.Severity.ERROR -> NotificationCategory.ERROR
-        },
-        NotificationSource.PROJECT_SYNC
-    )
-
-    notification.navigatable =
-        LazyNavigatable(
-            virtualFile,
-            project,
-            message.position
-        )
-
-    ExternalSystemNotificationManager.getInstance(project).showNotification(
-        GradleConstants.SYSTEM_ID,
-        notification
-    )
-}
-
-class LazyNavigatable internal constructor(
-    private val virtualFile: VirtualFile,
-    private val project: Project,
-    val position: KotlinDslScriptModel.Position?
-) : Navigatable {
-    private val openFileDescriptor: Navigatable by lazy {
-        if (position != null) OpenFileDescriptor(project, virtualFile, position.line, position.column)
-        else OpenFileDescriptor(project, virtualFile, -1)
-    }
-
-    override fun navigate(requestFocus: Boolean) {
-        if (openFileDescriptor.canNavigate()) openFileDescriptor.navigate(requestFocus)
-    }
-
-    override fun canNavigate(): Boolean = virtualFile.exists()
-
-    override fun canNavigateToSource(): Boolean = canNavigate()
 }
